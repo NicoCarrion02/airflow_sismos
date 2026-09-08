@@ -1,0 +1,21 @@
+# 1. Credenciales
+.env
+
+# 2. Datos
+data/raw/*
+data/processed/*
+data/archive/*
+data/reports/*
+
+# 3. Excepción para mantener la estructura de carpetas en Git
+!data/**/.gitkeep
+
+# 4. Archivos residuales de Python
+__pycache__/
+*.pyc
+
+# 5. Archivos de Airflow
+airflow.cfg
+airflow.db
+webserver_config.py
+logs/
