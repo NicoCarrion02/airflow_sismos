@@ -1,0 +1,19 @@
+services:
+  airflow:
+    image: apache/airflow:2.9.1
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
+    env_file:
+      - .env
+    command: >
+      bash -c "airflow db init &&
+               airflow users create --username admin --password admin --firstname Nico --lastname Carrion --role Admin --email admin@example.com &&
+               airflow webserver -p 8080 & airflow scheduler"
