@@ -1,6 +1,7 @@
 import json
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.utils.trigger_rule import TriggerRule
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.dates import days_ago
 
@@ -35,5 +36,5 @@ def format_alerts(**context):
 
 with DAG("04_format_alerts", start_date=days_ago(1), schedule_interval=None, catchup=False) as dag:
     t1 = PythonOperator(task_id="format", python_callable=format_alerts)
-    t2 = TriggerDagRunOperator(task_id="trigger_dag5", trigger_dag_id="05_send_notifications", conf={"source_run_id": "{{ dag_run.conf.get('source_run_id') }}"})
+    t2 = TriggerDagRunOperator(task_id="trigger_dag5", trigger_dag_id="05_send_notifications", conf={"source_run_id": "{{ dag_run.conf.get('source_run_id') }}"}, trigger_rule=TriggerRule.ALL_DONE)
     t1 >> t2
