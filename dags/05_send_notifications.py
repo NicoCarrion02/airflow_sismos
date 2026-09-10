@@ -6,15 +6,21 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.utils.trigger_rule import TriggerRule
 from airflow.utils.dates import days_ago
 
-def send_notifications_and_clean(**context):
+def send_notifications(**context):
     source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
+    file_path = f"/opt/airflow/data/formatted_{source_run_id}.json"
     
-    with open(f"/opt/airflow/data/formatted_{source_run_id}.json", "r", encoding="utf-8") as f:
+    if not os.path.exists(file_path):
+        print("No se encontró el archivo de alertas. Omitiendo envío.")
+        return
+
+    with open(file_path, "r", encoding="utf-8") as f:
         formatted = json.load(f)
         
-    if formatted["telegram"]:
+    if formatted.get("telegram"):
         bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
         chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -38,12 +44,26 @@ def send_notifications_and_clean(**context):
             server.starttls()
             server.login(smtp_user, smtp_pass)
             server.send_message(email_msg)
-            
-    # Cleanup de archivos temporales de este run
+
+def cleanup_files(**context):
+    source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
     for prefix in ["raw", "clean", "alerts", "formatted"]:
         file_path = f"/opt/airflow/data/{prefix}_{source_run_id}.json"
         if os.path.exists(file_path):
             os.remove(file_path)
+            print(f"Eliminado: {file_path}")
 
 with DAG("05_send_notifications", start_date=days_ago(1), schedule_interval=None, catchup=False) as dag:
-    PythonOperator(task_id="notify_and_clean", python_callable=send_notifications_and_clean)
+    
+    notify_task = PythonOperator(
+        task_id="send_notifications",
+        python_callable=send_notifications
+    )
+    
+    clean_task = PythonOperator(
+        task_id="cleanup_files",
+        python_callable=cleanup_files,
+        trigger_rule=TriggerRule.ALL_DONE
+    )
+    
+    notify_task >> clean_task
