@@ -13,7 +13,7 @@ def enrich_and_ingest(**context):
     with open(f"/opt/airflow/data/clean_{source_run_id}.json", "r", encoding="utf-8") as f:
         quakes = json.load(f)
 
-    conn = psycopg2.connect("host=postgres dbname=airflow user=airflow password=airflow")
+    conn = psycopg2.connect("host=postgres dbname=sismos_db user=airflow password=airflow")
     cur = conn.cursor()
     
     cur.execute("""
