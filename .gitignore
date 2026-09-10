@@ -2,20 +2,11 @@
 .env
 
 # 2. Datos
-data/raw/*
-data/processed/*
-data/archive/*
-data/reports/*
+data/*
 
-# 3. Excepción para mantener la estructura de carpetas en Git
-!data/**/.gitkeep
-
-# 4. Archivos residuales de Python
+# 3. Archivos residuales de Python
 __pycache__/
 *.pyc
 
-# 5. Archivos de Airflow
-airflow.cfg
-airflow.db
-webserver_config.py
+# 4. Archivos de Airflow
 logs/
