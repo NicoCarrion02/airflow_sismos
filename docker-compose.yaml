@@ -14,10 +14,8 @@ x-airflow-common:
 
     TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
     TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
-    SMTP_SERVER: ${SMTP_SERVER:-smtp-relay.brevo.com}
-    SMTP_PORT: ${SMTP_PORT:-587}
-    SMTP_USER: ${SMTP_USER}
-    SMTP_PASSWORD: ${SMTP_PASSWORD}
+    BREVO_API_KEY: ${BREVO_API_KEY}
+    BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL}
     ALERT_EMAIL: ${ALERT_EMAIL}
 
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
@@ -44,6 +42,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+    command: >
+      bash -c "
+        docker-entrypoint.sh postgres &
+        until pg_isready -U airflow; do sleep 1; done;
+        psql -U airflow -d airflow -c 'CREATE DATABASE sismos_db;' 2>/dev/null || true;
+        wait
+      "
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
