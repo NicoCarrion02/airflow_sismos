@@ -1,20 +1,16 @@
 import os
 import json
 import requests
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.trigger_rule import TriggerRule
 from airflow.utils.dates import days_ago
 
-def send_notifications(**context):
+def send_telegram(**context):
     source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
     file_path = f"/opt/airflow/data/formatted_{source_run_id}.json"
     
     if not os.path.exists(file_path):
-        print("No se encontró el archivo de alertas. Omitiendo envío.")
         return
 
     with open(file_path, "r", encoding="utf-8") as f:
@@ -27,23 +23,38 @@ def send_notifications(**context):
         
         for msg in formatted["telegram"]:
             requests.post(tg_url, json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"})
-            
-        smtp_server = os.environ.get('SMTP_SERVER', 'smtp-relay.brevo.com')
-        smtp_port = int(os.environ.get('SMTP_PORT', 587))
-        smtp_user = os.environ.get('SMTP_USER')
-        smtp_pass = os.environ.get('SMTP_PASSWORD')
-        alert_emails = os.environ.get('ALERT_EMAIL', '').split(',')
+
+def send_email(**context):
+    source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
+    file_path = f"/opt/airflow/data/formatted_{source_run_id}.json"
+    
+    if not os.path.exists(file_path):
+        return
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        formatted = json.load(f)
         
-        email_msg = MIMEMultipart()
-        email_msg['From'] = smtp_user
-        email_msg['To'] = ", ".join(alert_emails)
-        email_msg['Subject'] = "Alerta: Nuevos Sismos Relevantes (USGS)"
-        email_msg.attach(MIMEText(formatted["email"], 'html'))
-        
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(email_msg)
+    if formatted.get('email'):
+        api_key = os.environ.get("BREVO_API_KEY")
+        sender_email = os.environ.get("BREVO_SENDER_EMAIL")
+        alert_emails = [e.strip() for e in os.environ.get("ALERT_EMAIL", "").split(",") if e.strip()]
+
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": api_key,
+                "content-type": "application/json"
+            },
+            json={
+                "sender": {"email": sender_email},
+                "to": [{"email": email} for email in alert_emails],
+                "subject": "Alerta: Nuevos Sismos Relevantes (USGS)",
+                "htmlContent": formatted["email"]
+            },
+            timeout=30
+        )
+        response.raise_for_status()
 
 def cleanup_files(**context):
     source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
@@ -51,13 +62,17 @@ def cleanup_files(**context):
         file_path = f"/opt/airflow/data/{prefix}_{source_run_id}.json"
         if os.path.exists(file_path):
             os.remove(file_path)
-            print(f"Eliminado: {file_path}")
 
 with DAG("05_send_notifications", start_date=days_ago(1), schedule_interval=None, catchup=False) as dag:
     
-    notify_task = PythonOperator(
-        task_id="send_notifications",
-        python_callable=send_notifications
+    telegram_task = PythonOperator(
+        task_id="send_telegram",
+        python_callable=send_telegram
+    )
+    
+    email_task = PythonOperator(
+        task_id="send_email",
+        python_callable=send_email
     )
     
     clean_task = PythonOperator(
@@ -66,4 +81,4 @@ with DAG("05_send_notifications", start_date=days_ago(1), schedule_interval=None
         trigger_rule=TriggerRule.ALL_DONE
     )
     
-    notify_task >> clean_task
+    [telegram_task, email_task] >> clean_task
