@@ -3,6 +3,7 @@ import math
 import psycopg2
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.utils.trigger_rule import TriggerRule
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.dates import days_ago
 
@@ -64,5 +65,5 @@ def enrich_and_ingest(**context):
 
 with DAG("03_enrich_and_ingest", start_date=days_ago(1), schedule_interval=None, catchup=False) as dag:
     t1 = PythonOperator(task_id="enrich_ingest", python_callable=enrich_and_ingest)
-    t2 = TriggerDagRunOperator(task_id="trigger_dag4", trigger_dag_id="04_format_alerts", conf={"source_run_id": "{{ dag_run.conf.get('source_run_id') }}"})
+    t2 = TriggerDagRunOperator(task_id="trigger_dag4", trigger_dag_id="04_format_alerts", conf={"source_run_id": "{{ dag_run.conf.get('source_run_id') }}"}, trigger_rule=TriggerRule.ALL_DONE)
     t1 >> t2
