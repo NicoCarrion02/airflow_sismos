@@ -1,3 +1,4 @@
+import os
 import json
 import math
 import psycopg2
@@ -7,13 +8,34 @@ from airflow.utils.trigger_rule import TriggerRule
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.dates import days_ago
 
+def get_db_connection():
+    try:
+        return psycopg2.connect("host=postgres dbname=sismos_db user=airflow password=airflow")
+    except psycopg2.OperationalError:
+        # Inicialización idempotente automática: si sismos_db no existe, se conecta a postgres y la crea
+        conn_init = psycopg2.connect("host=postgres dbname=airflow user=airflow password=airflow")
+        conn_init.autocommit = True
+        with conn_init.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = 'sismos_db'")
+            if not cur.fetchone():
+                cur.execute("CREATE DATABASE sismos_db")
+        conn_init.close()
+        return psycopg2.connect("host=postgres dbname=sismos_db user=airflow password=airflow")
+
 def enrich_and_ingest(**context):
     source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
+    clean_path = f"/opt/airflow/data/clean_{source_run_id}.json"
     
-    with open(f"/opt/airflow/data/clean_{source_run_id}.json", "r", encoding="utf-8") as f:
+    if not os.path.exists(clean_path):
+        print(f"Archivo limpio no encontrado: {clean_path}")
+        with open(f"/opt/airflow/data/alerts_{source_run_id}.json", "w", encoding="utf-8") as f:
+            json.dump([], f)
+        return
+
+    with open(clean_path, "r", encoding="utf-8") as f:
         quakes = json.load(f)
 
-    conn = psycopg2.connect("host=postgres dbname=sismos_db user=airflow password=airflow")
+    conn = get_db_connection()
     cur = conn.cursor()
     
     cur.execute("""
