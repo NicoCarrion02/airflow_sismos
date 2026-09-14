@@ -241,6 +241,12 @@ Para procesar un intervalo histórico arbitrario, dispara el DAG `01_extract_dat
 
 ---
 
+## 📸 Evidencias de Ejecución
+
+![Evidencia de Ejecución](evidencia_ejecucion/image.png)
+
+---
+
 ## 🔮 Futuro Trabajo y Mejoras Posibles
 
 Para evolucionar este proyecto hacia una plataforma de grado de producción de alta disponibilidad, se identifican las siguientes líneas de trabajo futuro:
