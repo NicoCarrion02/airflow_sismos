@@ -1,3 +1,4 @@
+import os
 import json
 from datetime import datetime, timezone
 from airflow import DAG
@@ -8,8 +9,15 @@ from airflow.utils.dates import days_ago
 
 def clean_data(**context):
     source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
+    raw_path = f"/opt/airflow/data/raw_{source_run_id}.json"
     
-    with open(f"/opt/airflow/data/raw_{source_run_id}.json", "r", encoding="utf-8") as f:
+    if not os.path.exists(raw_path):
+        print(f"Archivo raw no encontrado: {raw_path}")
+        with open(f"/opt/airflow/data/clean_{source_run_id}.json", "w", encoding="utf-8") as f:
+            json.dump([], f)
+        return
+
+    with open(raw_path, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
     
     cleaned = []

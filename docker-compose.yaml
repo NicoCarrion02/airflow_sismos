@@ -45,8 +45,9 @@ services:
     command: >
       bash -c "
         docker-entrypoint.sh postgres &
-        until pg_isready -U airflow; do sleep 1; done;
-        psql -U airflow -d airflow -c 'CREATE DATABASE sismos_db;' 2>/dev/null || true;
+        until pg_isready -U airflow -h 127.0.0.1; do sleep 1; done;
+        export PGPASSWORD=airflow
+        psql -U airflow -h 127.0.0.1 -d airflow -tc \"SELECT 1 FROM pg_database WHERE datname = 'sismos_db'\" | grep -q 1 || psql -U airflow -h 127.0.0.1 -d airflow -c 'CREATE DATABASE sismos_db;'
         wait
       "
     healthcheck:
