@@ -1,3 +1,4 @@
+import os
 import json
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -7,12 +8,19 @@ from airflow.utils.dates import days_ago
 
 def format_alerts(**context):
     source_run_id = context['dag_run'].conf.get('source_run_id', '').replace(':', '_')
+    file_path = f"/opt/airflow/data/alerts_{source_run_id}.json"
     
-    with open(f"/opt/airflow/data/alerts_{source_run_id}.json", "r", encoding="utf-8") as f:
-        alerts = json.load(f)
-        
     formatted = {"telegram": [], "email": ""}
     
+    if not os.path.exists(file_path):
+        print(f"Archivo de alertas no encontrado: {file_path}. Generando formatted vacío.")
+        with open(f"/opt/airflow/data/formatted_{source_run_id}.json", "w", encoding="utf-8") as f:
+            json.dump(formatted, f)
+        return
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        alerts = json.load(f)
+        
     if alerts:
         email_lines = ["<h3>Sismos Relevantes Detectados (Nuevos):</h3><ul>"]
         for q in alerts:
